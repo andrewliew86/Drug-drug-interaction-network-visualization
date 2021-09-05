@@ -52,7 +52,7 @@ centrality_df = pd.DataFrame({'Degree':pd.Series(nx.degree_centrality(G)),
 # Network visualization 
 # Lets focus on some antibiotics: Kanamycin, Oxytetracycline and Streptomycin
 # I use only  small subset because plotting too many drugs will be a very bad visualization - too dense a network to make any sense!
-subset = ["kanamycin", "Oxytetracycline", "Streptomycin", "Clarithromycin"]
+subset = ["Kanamycin", "Oxytetracycline", "Streptomycin", "Clarithromycin"]
 df_anti_small = df.loc[df['drug1'].isin(subset) | df['drug2'].isin(subset)]
 df_anti_small = df_anti_small.reset_index(drop=True)
 
