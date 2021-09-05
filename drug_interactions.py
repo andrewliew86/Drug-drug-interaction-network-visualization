@@ -8,6 +8,8 @@
 import pandas as pd
 import networkx as nx
 import matplotlib.pyplot as plt
+from pyvis.network import Network
+
 df = pd.read_csv('ChCh-Miner_durgbank-chem-chem.tsv', sep='\t', names=["drug1", "drug2"])
 # Each row is an interaction between two drugs
 
@@ -27,7 +29,7 @@ print("Percentage of drug1 column that was not converted to common name: {}". fo
 df["weight"] = 1
 
 #%%
-# Basic analyses of drugs using networkx
+# Basic analyses (centrality) of drugs using networkx
 
 # Generate a networkx graph from my pandas dataframe
 G = nx.from_pandas_edgelist(df, 'drug1', 'drug2')
@@ -36,55 +38,59 @@ G.name = 'Drug Interactions Network'
 # Summary statistic of graph
 print(nx.info(G))
 
-# Lets make a function that finds the node(s) with the highest degree and betweeness centrality
+# Lets also create a dataframe  that has the different centrality measures as different columns so we can have a look.
+# Note that the Betweeness centrality might take a while to calculate
+centrality_df = pd.DataFrame({'Degree':pd.Series(nx.degree_centrality(G)),
+                              'Betweeness':pd.Series(nx.betweenness_centrality(G)), 
+                              'Eigenvector':pd.Series(nx.eigenvector_centrality(G)), 
+                              'Pagerank': pd.Series(nx.pagerank(G))})
 
-def find_nodes_with_highest_deg_cent(G):
-    """find the node that has the highest degree centrality"""
-    # Compute the degree centrality of G: deg_cent
-    deg_cent = nx.degree_centrality(G)
-    # Compute the maximum degree centrality: max_dc
-    max_dc = max(list(deg_cent.values()))
-    nodes = set()
-    # Iterate over the degree centrality dictionary
-    for k, v in deg_cent.items():
-        # Check if the current value has the maximum degree centrality
-        if v == max_dc:
-            # Add the current node to the set of nodes
-            nodes.add(k)
-    return nodes
-
-# Find the node(s) that has the highest degree centrality: top_dc
-top_dc = find_nodes_with_highest_deg_cent(G)
-print("Node with the highest degree centrality:")
-print(top_dc)
-
-
-# Lets also look at betweenenss centrality
-def find_node_with_highest_bet_cent(G):
-    """find the node that has the highest betwenness centrality"""
-    # Compute betweenness centrality: bet_cent
-    bet_cent = nx.betweenness_centrality(G)
-    # Compute maximum betweenness centrality: max_bc
-    max_bc = max(list(bet_cent.values()))
-    nodes = set()
-    # Iterate over the betweenness centrality dictionary
-    for k, v in bet_cent.items():
-        # Check if the current value has the maximum betweenness centrality
-        if v == max_bc:
-            # Add the current node to the set of nodes
-            nodes.add(k)
-    return nodes
-
-# Use that function to find the node(s) that has the highest betweenness centrality in the network: top_bc
-top_bc = find_node_with_highest_bet_cent(G)
-print("Node with the highest betweenness centrality:")
-print(top_bc)
-
-# Phenytoin has the highest degree centrality while warfarin has the highest betweenness centrality
-
-
+# Phenytoin has the highest degree and eigenvector centrality 
+# warfarin has the highest betweenness centrality and Pagerank score
 
 #%%
-# Network visualization
-# Subset data with Kanamycin, Oxytetracycline and Streptomycin
+# Network visualization 
+# Lets focus on some antibiotics: Kanamycin, Oxytetracycline and Streptomycin
+# I use only  small subset because plotting too many drugs will be a very bad visualization - too dense a network to make any sense!
+subset = ["kanamycin", "Oxytetracycline", "Streptomycin", "Clarithromycin"]
+df_anti_small = df.loc[df['drug1'].isin(subset) | df['drug2'].isin(subset)]
+df_anti_small = df_anti_small.reset_index(drop=True)
 
+
+
+def generate_network_viz(df, source_col, target_col, weights):
+    """ Generate an interative network graph"""
+    
+    # Generate a networkx graph
+    G = nx.from_pandas_edgelist(df, source_col, target_col, weights)
+
+    # Initiate PyVis network object
+    drug_net = Network(
+                       height='700px', 
+                       width='100%',
+                       bgcolor="white", 
+                       font_color="black", 
+                       notebook=True
+                      )
+    
+    # Take Networkx graph and translate it to a PyVis graph format
+    drug_net.from_nx(G)
+    
+    # Set repulsion so the network is spread out
+    drug_net.repulsion(
+                            node_distance=420, 
+                            central_gravity=0.15, 
+                            spring_length=100, 
+                            spring_strength=0.15, 
+                            damping=0.96
+                           )
+    return drug_net
+
+# Generate a networkx graph based on the antibiotic subset
+db_subset_net = generate_network_viz(df_anti_small, 'drug1', 'drug2', 'weight')
+
+# Display interactive graph
+db_subset_net.show('drug_interactions_network_subset_repulsion.html')
+
+# There are actually very few overlaps with the different drugs. 
+# other interestin observations are that Magnesium sulphate interaction occurs with both tetracycline and clarithromycin 
